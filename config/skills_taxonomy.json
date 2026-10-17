@@ -1,0 +1,31 @@
+{
+  "languages": [
+    "python", "javascript", "typescript", "java", "golang", "go", "c++", "c#", "rust",
+    "ruby", "php", "scala", "kotlin", "swift", "sql", "r", "bash", "shell", "c",
+    "perl", "haskell", "elixir", "clojure", "dart", "lua", "matlab", "assembly"
+  ],
+  "frameworks": [
+    "react", "react.js", "next.js", "angular", "vue", "vue.js", "node.js", "nodejs",
+    "express", "express.js", "django", "fastapi", "flask", "spring", "spring boot",
+    ".net", "asp.net", ".net core", "ruby on rails", "rails", "laravel", "nestjs",
+    "svelte", "graphql", "rest api", "grpc", "tailwind", "bootstrap", "redux"
+  ],
+  "cloud_devops": [
+    "aws", "amazon web services", "gcp", "google cloud", "azure", "docker", "kubernetes",
+    "k8s", "terraform", "ansible", "jenkins", "ci/cd", "github actions", "gitlab ci",
+    "helm", "prometheus", "grafana", "linux", "nginx", "apache", "datadog", "new relic",
+    "argocd", "cloudformation", "serverless", "lambda"
+  ],
+  "databases": [
+    "postgresql", "postgres", "mysql", "mongodb", "redis", "cassandra", "elasticsearch",
+    "dynamodb", "oracle", "snowflake", "bigquery", "redshift", "sqlite", "mariadb",
+    "neo4j", "clickhouse", "couchbase", "kafka", "rabbitmq"
+  ],
+  "ai_ml": [
+    "pytorch", "tensorflow", "keras", "scikit-learn", "langchain", "llamaindex",
+    "huggingface", "transformers", "llm", "large language models", "rag",
+    "deep learning", "machine learning", "nlp", "computer vision", "opencv",
+    "mlops", "generative ai", "genai", "prompt engineering", "fine-tuning",
+    "vector database", "pinecone", "weaviate", "milvus", "qdrant"
+  ]
+}

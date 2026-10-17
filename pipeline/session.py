@@ -43,6 +43,8 @@ def get_spark_session(app_name: str = SPARK_APP_NAME) -> SparkSession:
         .config("spark.executor.extraClassPath", POSTGRES_JDBC_JAR)
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.python.worker.faulthandler.enabled", "true")
         .config("spark.ui.enabled", "true")
         .config("spark.ui.port", "4040")
     )
