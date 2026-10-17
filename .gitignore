@@ -3,6 +3,10 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Project data directory (Parquet / Lakehouse files)
+data/
+
+
 # C extensions
 *.so
 

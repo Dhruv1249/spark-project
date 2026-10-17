@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: spark-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: jobcruiser
+      POSTGRES_USER: jobcruiser
+      POSTGRES_PASSWORD: jobcruiser
+    volumes:
+      - ../backups:/backups:ro
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
