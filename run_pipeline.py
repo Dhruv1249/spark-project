@@ -69,7 +69,7 @@ def run_stage_salary_model():
     print(f"\n[✓] Salary Model Pipeline completed in {time.time()-t0:.2f}s")
 
 
-def run_stage_serve(host: str = "127.0.0.1", port: int = 8000):
+def run_stage_serve(host: str = "0.0.0.0", port: int = 8050):
     print_banner("6. Django Interactive Dashboard Server")
     manage_py = PROJECT_ROOT / "dashboard" / "manage.py"
     python_bin = sys.executable
@@ -100,8 +100,8 @@ def main():
         default=None,
         help="Optional sampling fraction (e.g. 0.1 for 10%%) for quick deduplication runs"
     )
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host for Django server")
-    parser.add_argument("--port", type=int, default=8000, help="Port for Django server")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host for Django server")
+    parser.add_argument("--port", type=int, default=8050, help="Port for Django server")
 
     args = parser.parse_args()
     total_start = time.time()

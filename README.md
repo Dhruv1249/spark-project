@@ -175,5 +175,5 @@ python run_pipeline.py --stage salary      # MLlib Salary Model
 python run_pipeline.py --stage serve
 
 # Access the dashboard in your browser:
-# http://127.0.0.1:8000/
+# http://127.0.0.1:8050/
 ```
