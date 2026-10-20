@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Company Hiring Velocity & Surges | Spark Market Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Company Hiring Velocity & Momentum</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Computed via Spark SQL Window Functions: <code>LAG(COUNT(id), 1) OVER (PARTITION BY company ORDER BY week)</code>.
+            </p>
+        </div>
+        <div class="text-xs bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg font-mono">
+            Analysis Window: Week of <strong>{{ velocity.recent_week }}</strong>
+        </div>
+    </div>
+
+    <!-- Momentum Cards: Accelerating vs Cooling -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Accelerating Blitz Card -->
+        <div class="bg-slate-800/50 border border-emerald-900/40 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">🚀</span>
+                <h2 class="text-base font-bold text-emerald-400">Top Hiring Acceleration (Weekly Surge)</h2>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Companies with the largest net additions to active job postings week-over-week.</p>
+
+            <div class="space-y-2.5">
+                {% for c in velocity.accelerating %}
+                <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/70 border border-slate-800 text-xs">
+                    <div>
+                        <span class="font-bold text-white text-sm">{{ c.company_name }}</span>
+                        <div class="text-slate-400 mt-0.5">Rank #{{ c.weekly_rank }} • {{ c.weekly_jobs }} current openings</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold font-mono">
+                            +{{ c.jobs_delta }} jobs
+                        </span>
+                        {% if c.growth_rate_pct %}
+                        <div class="text-emerald-400 font-semibold mt-1 font-mono text-[11px]">+{{ c.growth_rate_pct }}%</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Cooling / Contraction Card -->
+        <div class="bg-slate-800/50 border border-rose-900/40 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">📉</span>
+                <h2 class="text-base font-bold text-rose-400">Hiring Deceleration & Cooldown</h2>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Companies experiencing the steepest week-over-week drop in new job postings.</p>
+
+            <div class="space-y-2.5">
+                {% for c in velocity.cooling %}
+                <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/70 border border-slate-800 text-xs">
+                    <div>
+                        <span class="font-bold text-white text-sm">{{ c.company_name }}</span>
+                        <div class="text-slate-400 mt-0.5">Rank #{{ c.weekly_rank }} • {{ c.weekly_jobs }} current openings</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="px-2.5 py-1 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold font-mono">
+                            {{ c.jobs_delta }} jobs
+                        </span>
+                        {% if c.growth_rate_pct %}
+                        <div class="text-rose-400 font-semibold mt-1 font-mono text-[11px]">{{ c.growth_rate_pct }}%</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Leaderboard Table -->
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl shadow-lg overflow-hidden">
+        <div class="p-5 border-b border-slate-700/60">
+            <h2 class="text-lg font-bold text-white">Global Enterprise Hiring Leaderboard</h2>
+            <p class="text-xs text-slate-400">Weekly job volume, previous week baseline, net momentum, and remote breakdown.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/90 text-slate-400 border-b border-slate-700">
+                    <tr>
+                        <th class="py-3 px-4">Weekly Rank</th>
+                        <th class="py-3 px-4">Company Name</th>
+                        <th class="py-3 px-4 text-right">Current Week</th>
+                        <th class="py-3 px-4 text-right">Previous Week</th>
+                        <th class="py-3 px-4 text-right">Weekly Delta</th>
+                        <th class="py-3 px-4 text-right">Growth Rate</th>
+                        <th class="py-3 px-4 text-right">Remote Roles</th>
+                        <th class="py-3 px-4 text-right">Avg Comp Midpoint</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for c in velocity.top_companies %}
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-3 px-4 font-mono font-bold text-sky-400">
+                            #{{ c.weekly_rank }}
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-white">
+                            {{ c.company_name }}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono font-bold text-white">
+                            {{ c.weekly_jobs }}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono text-slate-400">
+                            {{ c.prev_week_jobs|default:"—" }}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono font-semibold">
+                            {% if c.jobs_delta > 0 %}
+                            <span class="text-emerald-400">+{{ c.jobs_delta }}</span>
+                            {% elif c.jobs_delta < 0 %}
+                            <span class="text-rose-400">{{ c.jobs_delta }}</span>
+                            {% else %}
+                            <span class="text-slate-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono text-xs">
+                            {% if c.growth_rate_pct %}
+                            <span class="{% if c.growth_rate_pct > 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                {{ c.growth_rate_pct }}%
+                            </span>
+                            {% else %}
+                            <span class="text-slate-500">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono text-indigo-400">
+                            {{ c.weekly_remote_jobs }}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono text-slate-300">
+                            {% if c.weekly_avg_salary %}
+                            ${{ c.weekly_avg_salary|floatformat:"0" }}
+                            {% else %}
+                            <span class="text-slate-600">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Skills Intelligence & GPU Co-occurrence | Spark Market Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Technology Skills Intelligence</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Extracted across 428,962 job descriptions using Spark MLlib and calculated on your <strong class="text-sky-400">NVIDIA RTX 4050 GPU Tensor Cores</strong>.
+            </p>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="flex flex-wrap gap-2">
+            <a href="?category=all" class="px-3 py-1 rounded-lg text-xs font-semibold transition {% if selected_category == 'all' %}bg-sky-500 text-white shadow-md shadow-sky-500/20{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
+                All Domains
+            </a>
+            {% for cat in skills_data.categories %}
+            <a href="?category={{ cat }}" class="px-3 py-1 rounded-lg text-xs font-semibold transition {% if selected_category == cat %}bg-sky-500 text-white shadow-md shadow-sky-500/20{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
+                {{ cat }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Top Skills Bar Chart -->
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-base font-bold text-white">Top In-Demand Technologies</h2>
+                <p class="text-xs text-slate-400">Percentage penetration of technology skills in active job market listings</p>
+            </div>
+            <span class="text-xs bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-md font-mono">
+                Showing Top {{ skills_data.skills|length }}
+            </span>
+        </div>
+        <div class="relative h-96">
+            <canvas id="skillsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- GPU Co-occurrence Explorer -->
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-700/60 gap-3">
+            <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>⚡ GPU Technology Co-occurrence Explorer</span>
+                    <span class="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-mono">172ms GEMM</span>
+                </h2>
+                <p class="text-xs text-slate-400">
+                    Empirical conditional probability: <code>P(Skill B | Skill A)</code> computed from the 114x114 matrix product C = X<sup>T</sup>X.
+                </p>
+            </div>
+
+            <!-- Technology Selector Dropdown -->
+            <div class="flex items-center gap-2">
+                <label for="skillSelector" class="text-xs font-semibold text-slate-400">Selected Tech:</label>
+                <select id="skillSelector" onchange="loadCooccurrences(this.value)" class="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-sky-500 outline-none">
+                    <option value="Python" {% if selected_skill == 'Python' %}selected{% endif %}>Python</option>
+                    <option value="AWS" {% if selected_skill == 'AWS' %}selected{% endif %}>AWS</option>
+                    <option value="SQL" {% if selected_skill == 'SQL' %}selected{% endif %}>SQL</option>
+                    <option value="Java" {% if selected_skill == 'Java' %}selected{% endif %}>Java</option>
+                    <option value="Docker" {% if selected_skill == 'Docker' %}selected{% endif %}>Docker</option>
+                    <option value="Kubernetes" {% if selected_skill == 'Kubernetes' %}selected{% endif %}>Kubernetes</option>
+                    <option value="React" {% if selected_skill == 'React' %}selected{% endif %}>React</option>
+                    <option value="TypeScript" {% if selected_skill == 'TypeScript' %}selected{% endif %}>TypeScript</option>
+                    <option value="Go" {% if selected_skill == 'Go' %}selected{% endif %}>Go</option>
+                    <option value="PostgreSQL" {% if selected_skill == 'PostgreSQL' %}selected{% endif %}>PostgreSQL</option>
+                    <option value="PyTorch" {% if selected_skill == 'PyTorch' %}selected{% endif %}>PyTorch</option>
+                    <option value="Spark" {% if selected_skill == 'Spark' %}selected{% endif %}>Spark</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <!-- Co-occurrence Bar Chart -->
+            <div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Most Frequent Tech Pairings</h3>
+                <div class="relative h-72">
+                    <canvas id="cooccurChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table of Pairings -->
+            <div class="overflow-x-auto">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Co-occurrence Probability Breakdown</h3>
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="py-2.5 px-3">Associated Skill</th>
+                            <th class="py-2.5 px-3 text-right">Joint Postings</th>
+                            <th class="py-2.5 px-3 text-right">Conditional Prob P(B|A)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cooccurTableBody" class="divide-y divide-slate-800 text-xs font-mono">
+                        {% for row in cooccur_data.cooccurrences %}
+                        <tr class="hover:bg-slate-700/30 transition">
+                            <td class="py-2 px-3 text-white font-medium capitalize">{{ row.skill_b }}</td>
+                            <td class="py-2 px-3 text-right text-slate-300">{{ row.cooccurrence_count }}</td>
+                            <td class="py-2 px-3 text-right text-sky-400 font-bold">
+                                {{ row.similarity_display|floatformat:"3" }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Top Skills Horizontal Bar Chart
+    const skillsCtx = document.getElementById('skillsChart').getContext('2d');
+    const skillsLabels = {{ skills_data.chart_data.labels|safe }};
+    const skillsPenetration = {{ skills_data.chart_data.penetration|safe }};
+
+    new Chart(skillsCtx, {
+        type: 'bar',
+        data: {
+            labels: skillsLabels,
+            datasets: [{
+                label: 'Market Penetration (%)',
+                data: skillsPenetration,
+                backgroundColor: 'rgba(56, 189, 248, 0.8)',
+                hoverBackgroundColor: '#38bdf8',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8', callback: v => v + '%' },
+                    grid: { color: '#1e293b' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 45, minRotation: 45 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // 2. Co-occurrence Dynamic Chart
+    const cooccurCtx = document.getElementById('cooccurChart').getContext('2d');
+    let cooccurChart = new Chart(cooccurCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ cooccur_data.chart_data.labels|safe }},
+            datasets: [{
+                label: 'Co-occurrence Count',
+                data: {{ cooccur_data.chart_data.counts|safe }},
+                backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                hoverBackgroundColor: '#a855f7',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#1e293b' }
+                },
+                y: {
+                    ticks: { color: '#94a3b8', font: { size: 10 } },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Asynchronous Fetch for Skill Selector
+    async function loadCooccurrences(skill) {
+        try {
+            const resp = await fetch(`/api/cooccurrence/?skill=${encodeURIComponent(skill)}`);
+            const data = await resp.json();
+
+            // Update Chart
+            cooccurChart.data.labels = data.chart_data.labels;
+            cooccurChart.data.datasets[0].data = data.chart_data.counts;
+            cooccurChart.update();
+
+            // Update Table
+            const tbody = document.getElementById('cooccurTableBody');
+            tbody.innerHTML = '';
+            data.cooccurrences.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30 transition';
+                tr.innerHTML = `
+                    <td class="py-2 px-3 text-white font-medium capitalize">${row.skill_b}</td>
+                    <td class="py-2 px-3 text-right text-slate-300">${row.cooccurrence_count.toLocaleString()}</td>
+                    <td class="py-2 px-3 text-right text-sky-400 font-bold">${parseFloat(row.conditional_prob).toFixed(3)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error('Failed to load cooccurrences:', err);
+        }
+    }
+</script>
+{% endblock %}

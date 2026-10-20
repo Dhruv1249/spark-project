@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Market Overview | Spark Market Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div>
+        <h1 class="text-3xl font-extrabold tracking-tight text-white">Executive Market Overview</h1>
+        <p class="text-sm text-slate-400 mt-1">High-level market dynamics computed from 428,962 cleaned job listings stored in Apache Spark Parquet format.</p>
+    </div>
+
+    <!-- 4 Key Stat Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Card 1: Total Volume -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Analyzed</span>
+                <span class="p-2 rounded-lg bg-sky-500/10 text-sky-400 text-lg">📊</span>
+            </div>
+            <div class="mt-3">
+                <div class="text-3xl font-black text-white">{{ kpis.total_postings|floatformat:"0" }}</div>
+                <div class="text-xs text-slate-400 mt-1">Clean records in Silver Lakehouse</div>
+            </div>
+        </div>
+
+        <!-- Card 2: Net Unique Jobs -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Net Unique Roles</span>
+                <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-lg">🎯</span>
+            </div>
+            <div class="mt-3">
+                <div class="text-3xl font-black text-emerald-400">{{ kpis.net_unique_jobs|floatformat:"0" }}</div>
+                <div class="text-xs text-slate-400 mt-1">After MinHash LSH deduplication</div>
+            </div>
+        </div>
+
+        <!-- Card 3: Duplicates & Syndication -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Syndicated Copies</span>
+                <span class="p-2 rounded-lg bg-amber-500/10 text-amber-400 text-lg">🔗</span>
+            </div>
+            <div class="mt-3">
+                <div class="text-3xl font-black text-amber-400">{{ kpis.duplicate_postings|floatformat:"0" }}</div>
+                <div class="text-xs text-slate-400 mt-1">In {{ kpis.duplicate_clusters }} distinct cross-portal clusters</div>
+            </div>
+        </div>
+
+        <!-- Card 4: Remote Adoption -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Remote Ratio (Oct)</span>
+                <span class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-lg">🌐</span>
+            </div>
+            <div class="mt-3">
+                <div class="text-3xl font-black text-indigo-400">{{ kpis.latest_remote_pct }}%</div>
+                <div class="text-xs text-slate-400 mt-1">Avg Remote Comp: ${{ kpis.avg_remote_salary|floatformat:"0" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Portal Volume Doughnut -->
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg">
+            <h2 class="text-base font-bold text-white mb-1">Source Ingestion & Syndication Volume</h2>
+            <p class="text-xs text-slate-400 mb-4">Volume distribution across major scrapers and ATS portals</p>
+            <div class="relative h-64">
+                <canvas id="sourcesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Remote Trend Line Chart -->
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg">
+            <h2 class="text-base font-bold text-white mb-1">Remote Work Temporal Trend</h2>
+            <p class="text-xs text-slate-400 mb-4">Evolution of remote posting ratio from July to October 2026</p>
+            <div class="relative h-64">
+                <canvas id="remoteTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Source Efficiency & Redundancy Scorecard Table -->
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-700/60 gap-2">
+            <div>
+                <h2 class="text-lg font-bold text-white">Source Efficiency & Transparency Scorecard</h2>
+                <p class="text-xs text-slate-400">Comprehensive breakdown of volume, duplication rates, and compensation transparency.</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto mt-4">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-700">
+                    <tr>
+                        <th class="py-3 px-4">Portal Source</th>
+                        <th class="py-3 px-4 text-right">Total Postings</th>
+                        <th class="py-3 px-4 text-right">Net Unique</th>
+                        <th class="py-3 px-4 text-right">Duplication Rate</th>
+                        <th class="py-3 px-4 text-right">Salary Transparency</th>
+                        <th class="py-3 px-4 text-right">Remote %</th>
+                        <th class="py-3 px-4 text-right">Avg Desc Chars</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for row in kpis.sources_table %}
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-3 px-4 font-semibold text-white capitalize flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full {% if row.duplication_rate_pct > 15 %}bg-rose-400{% elif row.duplication_rate_pct > 5 %}bg-amber-400{% else %}bg-emerald-400{% endif %}"></span>
+                            {{ row.source }}
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono">{{ row.total_jobs }}</td>
+                        <td class="py-3 px-4 text-right font-mono text-emerald-400">{{ row.net_unique_jobs }}</td>
+                        <td class="py-3 px-4 text-right font-mono">
+                            <span class="px-2 py-0.5 rounded text-xs {% if row.duplication_rate_pct > 15 %}bg-rose-950 text-rose-300 border border-rose-800{% elif row.duplication_rate_pct > 5 %}bg-amber-950 text-amber-300 border border-amber-800{% else %}bg-emerald-950 text-emerald-300 border border-emerald-800{% endif %}">
+                                {{ row.duplication_rate_pct }}%
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono text-slate-300">{{ row.salary_disclosure_pct }}%</td>
+                        <td class="py-3 px-4 text-right font-mono text-slate-300">{{ row.remote_pct }}%</td>
+                        <td class="py-3 px-4 text-right font-mono text-slate-400">{{ row.avg_desc_chars|floatformat:"0" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Sources Doughnut Chart
+    const sourcesCtx = document.getElementById('sourcesChart').getContext('2d');
+    const sourcesLabels = {{ kpis.sources_chart.labels|safe }};
+    const sourcesVolumes = {{ kpis.sources_chart.volumes|safe }};
+
+    new Chart(sourcesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: sourcesLabels.slice(0, 7),
+            datasets: [{
+                data: sourcesVolumes.slice(0, 7),
+                backgroundColor: [
+                    '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#64748b'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 } } }
+            }
+        }
+    });
+
+    // 2. Remote Adoption Trend Line Chart
+    const remoteCtx = document.getElementById('remoteTrendChart').getContext('2d');
+    const remoteLabels = {{ kpis.remote_trend.labels|safe }};
+    const remoteRates = {{ kpis.remote_trend.rates|safe }};
+
+    new Chart(remoteCtx, {
+        type: 'line',
+        data: {
+            labels: remoteLabels,
+            datasets: [{
+                label: 'Remote Adoption (%)',
+                data: remoteRates,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                fill: true,
+                tension: 0.35,
+                borderWidth: 3,
+                pointBackgroundColor: '#0284c7',
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 50,
+                    ticks: { color: '#94a3b8', callback: v => v + '%' },
+                    grid: { color: '#1e293b' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#1e293b' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

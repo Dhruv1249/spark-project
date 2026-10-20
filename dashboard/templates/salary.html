@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Experimental Salary Estimator | Spark Market Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Experimental Salary Estimator</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Trained via Apache Spark MLlib <code>RandomForestRegressor</code> on 122,707 real-world annual salary disclosures.
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs bg-emerald-950 border border-emerald-800 text-emerald-400 px-3 py-1.5 rounded-lg font-mono">
+                MLlib RF Model (R² 0.384)
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Grid: Calculator & Model Metrics -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Interactive Calculator Form -->
+        <div class="lg:col-span-2 bg-slate-800/60 border border-slate-700/60 rounded-xl p-6 shadow-xl space-y-6">
+            <div class="border-b border-slate-700/60 pb-3">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>💵 Real-Time Compensation Estimator</span>
+                </h2>
+                <p class="text-xs text-slate-400">Configure role attributes to estimate expected market base salary compensation.</p>
+            </div>
+
+            <form id="salaryForm" onsubmit="event.preventDefault(); calculateSalary();" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <!-- Title input -->
+                <div class="sm:col-span-2">
+                    <label class="block font-semibold text-slate-300 mb-1">Target Job Title</label>
+                    <input type="text" id="inputTitle" value="{{ prediction.title }}" 
+                           class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 outline-none"
+                           placeholder="e.g. Senior Machine Learning Engineer, Staff Site Reliability Engineer...">
+                </div>
+
+                <!-- Seniority Tier -->
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Seniority Level</label>
+                    <select id="inputSeniority" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        <option value="Intern" {% if prediction.seniority == 'Intern' %}selected{% endif %}>Intern / Apprentice</option>
+                        <option value="Junior" {% if prediction.seniority == 'Junior' %}selected{% endif %}>Junior / Entry-Level (0-2 yrs)</option>
+                        <option value="Mid" {% if prediction.seniority == 'Mid' %}selected{% endif %}>Mid-Level (3-5 yrs)</option>
+                        <option value="Senior" {% if prediction.seniority == 'Senior' %}selected{% endif %}>Senior (5-8 yrs)</option>
+                        <option value="Lead" {% if prediction.seniority == 'Lead' %}selected{% endif %}>Lead / Tech Lead (8+ yrs)</option>
+                        <option value="Staff_Principal" {% if prediction.seniority == 'Staff_Principal' %}selected{% endif %}>Staff / Principal / Architect</option>
+                        <option value="Executive" {% if prediction.seniority == 'Executive' %}selected{% endif %}>Director / VP / Executive</option>
+                    </select>
+                </div>
+
+                <!-- State / Region -->
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Location / State</label>
+                    <select id="inputState" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                        <option value="CA" {% if prediction.state == 'CA' %}selected{% endif %}>California (+15% Tier 1)</option>
+                        <option value="NY" {% if prediction.state == 'NY' %}selected{% endif %}>New York (+12% Tier 1)</option>
+                        <option value="WA" {% if prediction.state == 'WA' %}selected{% endif %}>Washington (+10% Tier 1)</option>
+                        <option value="MA" {% if prediction.state == 'MA' %}selected{% endif %}>Massachusetts (+8%)</option>
+                        <option value="TX" {% if prediction.state == 'TX' %}selected{% endif %}>Texas (Standard)</option>
+                        <option value="IL" {% if prediction.state == 'IL' %}selected{% endif %}>Illinois (Standard)</option>
+                        <option value="OTHER" {% if prediction.state == 'OTHER' %}selected{% endif %}>Other / National Baseline</option>
+                    </select>
+                </div>
+
+                <!-- Remote Toggle -->
+                <div class="sm:col-span-2 flex items-center gap-3 pt-2">
+                    <input type="checkbox" id="inputRemote" {% if prediction.is_remote %}checked{% endif %} class="w-4 h-4 rounded text-sky-600 bg-slate-900 border-slate-700 focus:ring-sky-500">
+                    <label for="inputRemote" class="text-slate-300 font-medium">Fully Remote Role (+5% observed empirical premium)</label>
+                </div>
+
+                <div class="sm:col-span-2 pt-2">
+                    <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-lg text-sm transition shadow-lg shadow-sky-600/30">
+                        Calculate Market Compensation Range
+                    </button>
+                </div>
+            </form>
+
+            <!-- Prediction Result Card -->
+            <div id="resultCard" class="mt-6 p-6 rounded-xl bg-gradient-to-r from-sky-950/60 to-indigo-950/60 border border-sky-800/60 shadow-lg">
+                <span class="text-xs uppercase tracking-wider font-bold text-sky-400">Estimated Market Base Salary</span>
+                <div class="flex flex-col sm:flex-row sm:items-baseline gap-3 mt-1">
+                    <div id="predSalary" class="text-4xl font-black text-white">
+                        ${{ prediction.predicted_salary }}
+                    </div>
+                    <div class="text-xs text-slate-300 font-mono">
+                        Target Midpoint (USD)
+                    </div>
+                </div>
+
+                <!-- Range bar -->
+                <div class="mt-4 pt-4 border-t border-sky-900/60 flex flex-col sm:flex-row justify-between text-xs text-slate-300 gap-2">
+                    <div>
+                        <span class="text-slate-400">25th Percentile:</span>
+                        <strong id="predMin" class="text-white font-mono ml-1">${{ prediction.salary_range_min }}</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">75th Percentile:</span>
+                        <strong id="predMax" class="text-white font-mono ml-1">${{ prediction.salary_range_max }}</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">State CoL Factor:</span>
+                        <strong id="predMult" class="text-sky-300 font-mono ml-1">{{ prediction.state_multiplier }}x</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MLlib Model Architecture Card -->
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-xl space-y-5">
+            <h2 class="text-base font-bold text-white border-b border-slate-700/60 pb-3 flex items-center gap-2">
+                <span>🧠 Spark MLlib Architecture</span>
+            </h2>
+
+            <div class="space-y-3 text-xs">
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Algorithm</span>
+                    <strong class="text-white font-mono">RandomForestRegressor</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Ensemble Size</span>
+                    <strong class="text-white font-mono">30 Decision Trees</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Max Tree Depth</span>
+                    <strong class="text-white font-mono">8 Levels</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Training Samples</span>
+                    <strong class="text-white font-mono">122,707 Postings</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Test R² Score</span>
+                    <strong class="text-emerald-400 font-mono font-bold">0.3837</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Test RMSE</span>
+                    <strong class="text-white font-mono">$44,579</strong>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-800">
+                    <span class="text-slate-400">Test MAE</span>
+                    <strong class="text-white font-mono">$33,675</strong>
+                </div>
+                <div class="flex justify-between py-1.5">
+                    <span class="text-slate-400">Training Time</span>
+                    <strong class="text-sky-400 font-mono">7.38 Seconds</strong>
+                </div>
+            </div>
+
+            <!-- Features Used -->
+            <div class="pt-3 border-t border-slate-700/60 text-xs">
+                <span class="font-bold text-slate-300 block mb-2">Engineered Feature Vectors:</span>
+                <ul class="space-y-1 text-slate-400 list-disc list-inside">
+                    <li>Title Tokens (HashingTF 128-dim)</li>
+                    <li>Seniority Tier (One-Hot Encoded)</li>
+                    <li>State / Region (One-Hot Encoded)</li>
+                    <li>Employment Type (One-Hot Encoded)</li>
+                    <li>Remote Status Indicator (Binary)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function calculateSalary() {
+        const title = document.getElementById('inputTitle').value;
+        const seniority = document.getElementById('inputSeniority').value;
+        const state = document.getElementById('inputState').value;
+        const isRemote = document.getElementById('inputRemote').checked;
+
+        const url = `/api/salary-predict/?title=${encodeURIComponent(title)}&seniority=${encodeURIComponent(seniority)}&state=${encodeURIComponent(state)}&is_remote=${isRemote}`;
+
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            document.getElementById('predSalary').textContent = '$' + data.predicted_salary.toLocaleString();
+            document.getElementById('predMin').textContent = '$' + data.salary_range_min.toLocaleString();
+            document.getElementById('predMax').textContent = '$' + data.salary_range_max.toLocaleString();
+            document.getElementById('predMult').textContent = data.state_multiplier + 'x';
+        } catch (err) {
+            console.error('Failed to calculate salary:', err);
+        }
+    }
+</script>
+{% endblock %}

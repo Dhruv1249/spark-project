@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-Portal Duplicate Clusters | Spark Market Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Cross-Portal Duplicate Clusters</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Discovered via <strong class="text-sky-400">MinHash LSH</strong> and grouped using <strong class="text-indigo-400">Disjoint Set Union (Connected Components)</strong> in Spark.
+            </p>
+        </div>
+
+        <!-- Filter Stats Badge -->
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
+                Found <strong class="text-amber-400">{{ data.total_count }}</strong> Clusters
+            </span>
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-lg">
+        <form method="GET" class="flex flex-col sm:flex-row gap-3">
+            <!-- Search bar -->
+            <div class="flex-1 relative">
+                <input type="text" name="q" value="{{ data.search_query }}" placeholder="Search company or job title (e.g. ServiceNow, Software Engineer)..." 
+                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-10 py-2 focus:ring-2 focus:ring-sky-500 outline-none">
+            </div>
+
+            <!-- Portal dropdown -->
+            <div class="sm:w-56">
+                <select name="source" class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none">
+                    <option value="all">All Portals</option>
+                    {% for src in data.available_sources %}
+                    <option value="{{ src }}" {% if data.source_filter == src %}selected{% endif %}>{{ src|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Submit button -->
+            <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2 rounded-lg text-sm font-semibold transition shadow-md shadow-sky-600/20">
+                Filter
+            </button>
+
+            {% if data.search_query or data.source_filter != 'all' %}
+            <a href="{% url 'duplicates' %}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition text-center">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Clusters Table -->
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/90 text-slate-400 border-b border-slate-700">
+                    <tr>
+                        <th class="py-3 px-4">Cluster ID</th>
+                        <th class="py-3 px-4">Company</th>
+                        <th class="py-3 px-4">Canonical Job Title</th>
+                        <th class="py-3 px-4">Location</th>
+                        <th class="py-3 px-4">Syndicated Portals</th>
+                        <th class="py-3 px-4 text-center">Copies</th>
+                        <th class="py-3 px-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for cluster in data.clusters %}
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-3 px-4 font-mono text-xs text-sky-400 font-bold">
+                            {{ cluster.cluster_id }}
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-white">
+                            {{ cluster.company_name }}
+                        </td>
+                        <td class="py-3 px-4 text-slate-200">
+                            {{ cluster.primary_title }}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-400">
+                            {{ cluster.location }}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for s in cluster.sources %}
+                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-900 border border-slate-700 text-slate-300">
+                                    {{ s }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-center font-mono">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-bold {% if cluster.cluster_size > 5 %}bg-rose-950 text-rose-300 border border-rose-800{% elif cluster.cluster_size > 2 %}bg-amber-950 text-amber-300 border border-amber-800{% else %}bg-indigo-950 text-indigo-300 border border-indigo-800{% endif %}">
+                                {{ cluster.cluster_size }}x
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="inspectCluster('{{ cluster.cluster_id }}')" class="text-xs bg-slate-700 hover:bg-slate-600 text-sky-300 px-3 py-1.5 rounded-md font-medium transition">
+                                Inspect Details →
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-slate-400">
+                            No duplicate clusters match your search criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if data.total_pages > 1 %}
+        <div class="px-6 py-4 bg-slate-900/60 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
+            <div>
+                Page <strong class="text-white">{{ data.page }}</strong> of <strong class="text-white">{{ data.total_pages }}</strong>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if data.page > 1 %}
+                <a href="?page={{ data.page|add:'-1' }}&q={{ data.search_query }}&source={{ data.source_filter }}" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                    ← Previous
+                </a>
+                {% endif %}
+
+                {% if data.page < data.total_pages %}
+                <a href="?page={{ data.page|add:'1' }}&q={{ data.search_query }}&source={{ data.source_filter }}" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                    Next →
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Inspector for Cluster Members -->
+<div id="clusterModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+            <div>
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span id="modalClusterId" class="text-sky-400 font-mono"></span>
+                    <span class="text-slate-400 text-xs font-normal">Cross-Portal Postings</span>
+                </h3>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 overflow-y-auto flex-1 space-y-3" id="modalMemberList">
+            <!-- Populated via AJAX -->
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-3 border-t border-slate-800 bg-slate-950 flex justify-end">
+            <button onclick="closeModal()" class="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition font-medium">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function inspectCluster(clusterId) {
+        document.getElementById('modalClusterId').textContent = clusterId;
+        const listContainer = document.getElementById('modalMemberList');
+        listContainer.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">Loading cluster members...</div>';
+        document.getElementById('clusterModal').classList.remove('hidden');
+
+        try {
+            const resp = await fetch(`/api/cluster/${encodeURIComponent(clusterId)}/`);
+            const data = await resp.json();
+
+            listContainer.innerHTML = '';
+            data.members.forEach(m => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border text-xs transition ${m.is_canonical ? 'bg-sky-950/40 border-sky-800/80 shadow-md' : 'bg-slate-800/60 border-slate-700/60'}`;
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="font-bold text-sm text-white flex items-center gap-2">
+                                <span>${m.title}</span>
+                                ${m.is_canonical ? '<span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-sky-500 text-white">Canonical ATS</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">Syndicated Copy</span>'}
+                            </div>
+                            <div class="text-slate-400 mt-1 flex items-center gap-3">
+                                <span>🏢 <strong>${m.company_name}</strong></span>
+                                <span>📍 ${m.location || 'Not specified'}</span>
+                                <span>💼 ${m.employment_type || 'Full-time'}</span>
+                            </div>
+                        </div>
+                        <div class="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold capitalize bg-slate-900 border border-slate-700 text-sky-400">
+                            ${m.source}
+                        </div>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        } catch (err) {
+            listContainer.innerHTML = '<div class="text-center py-6 text-rose-400 text-xs">Failed to load cluster details.</div>';
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('clusterModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}
